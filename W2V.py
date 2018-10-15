@@ -1,7 +1,6 @@
 from gensim.models import Word2Vec
 from preprocess import tokenize
 
-
 def trainW2V(corpus, vsize=100, window=5, epochs=10):
     print("W2V: Create corpus")
     w2v = Word2Vec(corpus, size=vsize, window=window, min_count=1, workers=4)

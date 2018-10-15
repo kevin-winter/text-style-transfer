@@ -1,5 +1,5 @@
 from nltk import word_tokenize, download, sent_tokenize
-nltk.download('punkt')
+download('punkt')
 
 
 def clean_txt(txt):
