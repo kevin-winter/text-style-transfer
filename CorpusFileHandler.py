@@ -1,6 +1,6 @@
 import os
 import pickle as pkl
-from preprocess import *
+from helper import *
 
 class CorpusFileHandler():
     def __init__(self, path):
@@ -37,4 +37,5 @@ class CorpusFileHandler():
             return content
 
         except Exception as e:
-            print("Could not parse '{}' ({})".format(self.path, e))
+            logging.error("Could not parse '{}' ({})".format(self.path, e))
+            return []

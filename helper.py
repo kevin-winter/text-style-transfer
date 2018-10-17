@@ -35,7 +35,7 @@ def percentile_action(i, N, p, f, *fargs):
 
 def save_sents(i,N,p,args):
     percent = i*100//N
-    print("{:3d}% parsed".format(percent))
+    logging.info("{:3d}% parsed".format(percent))
     
     try:
         os.mkdir("tokens")
@@ -49,5 +49,5 @@ def save_sents(i,N,p,args):
 
 def report(i,N,p,args):
     percent = i*100//N
-    print("{:3d}% parsed".format(percent))
+    logging.info("{:3d}% parsed".format(percent))
     return True

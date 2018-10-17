@@ -1,6 +1,8 @@
 from W2V import *
 from CorpusStreamer import *
 
+configure_logging()
+
 xmlfolderpath = ""
 #xml_to_tokens(xmlfolderpath)
 

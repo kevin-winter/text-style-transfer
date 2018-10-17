@@ -73,7 +73,7 @@ def get_texts(metadf, path=""):
     
     texts = []
     for i,book in metadf.iterrows():
-        print("Loading EText {}: '{}' by {}".format(book["EText-No."], book["Title"], book["Author"]))
+        logging.debug("Loading EText {}: '{}' by {}".format(book["EText-No."], book["Title"], book["Author"]))
         try:  
             if path:
                 with ZipFile(path + book["Path"]) as zfile:
@@ -83,7 +83,6 @@ def get_texts(metadf, path=""):
 
             texts.append(txt.decode("utf8","ignore"))
         except Exception as e:
-            print("ERROR Could not load EText {}: {}".format(book["EText-No."], book["Title"]))
-            print(e)
+            logging.error("ERROR Could not load EText {}: {} ({})".format(book["EText-No."], book["Title"], e))
               
     return texts
