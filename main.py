@@ -1,11 +1,10 @@
-from xml_to_tokens import xml_to_tokens
-from CorpusStreamer import CorpusStreamer
-from W2V import trainW2V
+from W2V import *
+from CorpusStreamer import *
 
 xmlfolderpath = ""
-xml_to_tokens(xmlfolderpath)
+#xml_to_tokens(xmlfolderpath)
 
-tokenpath = ""
-stream = CorpusStreamer(tokenpath)
-w2v = trainW2V(stream, epochs=1)
-evaluate_w2v(w2v2)
+#tokenpath = ""
+stream = CorpusStreamer(xmlfolderpath)
+w2v = Word2Vec.create_and_train(stream, epochs=1)
+w2v.evaluate_analogies()

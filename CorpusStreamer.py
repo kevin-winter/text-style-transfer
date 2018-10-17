@@ -1,14 +1,13 @@
-import os
-import pickle as pkl
+from CorpusFileHandler import *
 
 class CorpusStreamer:
     def __init__(self, path):
         self.path = path
-    
+  
     def __iter__(self):
-        for fname in os.listdir(self.path):
-            print("W2V: Loading: " + fname)
-            with open(self.path + fname, "rb") as file:
-                sents = pkl.load(file)
-                for sent in sents:
-                    yield sent
+        files = os.listdir(self.path)
+        nr_files = len(files)
+
+        for i, fname in enumerate(files):
+            print("CorpusStreamer: Loading: " + fname)
+            yield from CorpusFileHandler(self.path + fname).as_token_stream()

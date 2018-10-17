@@ -3,7 +3,6 @@ download('punkt')
 
 
 def clean_txt(txt):
-    print("Preprocess: Clean text")
     txt = crop_body(txt)
     #txt = txt.lower()
     txt = re.sub("(\r?\n)+"," ", txt)
@@ -12,5 +11,10 @@ def clean_txt(txt):
     return txt
 
 def tokenize(txt):
-    print("Preprocess: Tokenize")
     return [word_tokenize(sentence) for sentence in sent_tokenize(txt.lower())]
+
+def crop_body(txt):
+    txt = re.sub(r"\*\*\* ?start.*\*\*\*\r?\n", "***START***", txt, flags=re.I)
+    txt = re.sub(r"\*\*\* ?end.*\*\*\*\r?\n", "***END***", txt, flags=re.I)
+    txt = txt[txt.find("***START***")+11:txt.find("***END***")]
+    return txt

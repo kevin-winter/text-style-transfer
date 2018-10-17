@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup as BS
 from zipfile import ZipFile
+from urllib.request import urlopen
 
 import pandas as pd
 import numpy as np
@@ -86,10 +87,3 @@ def get_texts(metadf, path=""):
             print(e)
               
     return texts
-
-def crop_body(txt):
-    txt = re.sub(r"\*\*\* ?start.*\*\*\*\r?\n", "***START***", txt, flags=re.I)
-    txt = re.sub(r"\*\*\* ?end.*\*\*\*\r?\n", "***END***", txt, flags=re.I)
-    txt = txt[txt.find("***START***")+11:txt.find("***END***")]
-    return txt
-
