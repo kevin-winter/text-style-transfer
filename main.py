@@ -4,7 +4,6 @@ from CorpusStreamer import *
 configure_logging()
 
 xmlfolderpath = ""
-#xml_to_tokens(xmlfolderpath)
 
 #tokenpath = ""
 stream = CorpusStreamer(xmlfolderpath)
