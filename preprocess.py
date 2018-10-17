@@ -13,4 +13,4 @@ def clean_txt(txt):
 
 def tokenize(txt):
     print("Preprocess: Tokenize")
-    return [word_tokenize(sentence) for sentence in sent_tokenize(cleaned)]
+    return [word_tokenize(sentence) for sentence in sent_tokenize(txt.lower())]
