@@ -7,10 +7,10 @@ class CorpusStreamer:
     def __iter__(self):
         files = os.listdir(self.path)
         nr_files = len(files)
-        logging.INFO("CorpusStreamer: Loading {} files.".format(nr_files))
+        logging.info("CorpusStreamer: Loading {} files.".format(nr_files))
         
         for i, fname in enumerate(files):
-            logging.DEBUG("CorpusStreamer: Loading: " + fname)
+            logging.debug("CorpusStreamer: Loading: " + fname)
             yield from CorpusFileHandler(self.path + fname).as_token_stream()
 
             percentile_action(i+1, nr_files, 5, report, None)
