@@ -3,6 +3,25 @@ from bs4 import BeautifulSoup as BS
 import pickle as pkl
 from nltk import word_tokenize, download, sent_tokenize
 download('punkt')
+import logging
+import sys
+
+def configure_logging():
+    logformat = logging.Formatter("%(asctime)s:%(levelname)s:%(message)s")
+
+    consoleLogger = logging.StreamHandler(sys.stdout)
+    consoleLogger.setFormatter(logformat)
+    consoleLogger.setLevel(logging.INFO)
+
+    fileLogger = logging.FileHandler(filename='log.log', mode='a')
+    fileLogger.setFormatter(logformat)
+    fileLogger.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    logger.addHandler(consoleLogger)
+    logger.addHandler(fileLogger)
 
 
 def clean_txt(txt):
@@ -13,14 +32,17 @@ def clean_txt(txt):
     txt = "".join(list(filter(lambda x: x not in '"#$%&\'()*+-/:;<=>@[\\]^_`{|}~', txt)))
     return txt
 
+
 def tokenize(txt):
     return [word_tokenize(sentence) for sentence in sent_tokenize(txt.lower())]
+
 
 def crop_body(txt):
     txt = re.sub(r"\*\*\* ?start.*\*\*\*\r?\n", "***START***", txt, flags=re.I)
     txt = re.sub(r"\*\*\* ?end.*\*\*\*\r?\n", "***END***", txt, flags=re.I)
     txt = txt[txt.find("***START***")+11:txt.find("***END***")]
     return txt
+
 
 def get_text(file):
     bs_file = BS(file, from_encoding="UTF-8")
