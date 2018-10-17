@@ -11,3 +11,5 @@ class CorpusStreamer:
         for i, fname in enumerate(files):
             print("CorpusStreamer: Loading: " + fname)
             yield from CorpusFileHandler(self.path + fname).as_token_stream()
+
+            percentile_action(i+1, nr_files, 5, report, sents):
