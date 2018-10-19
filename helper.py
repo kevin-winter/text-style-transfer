@@ -5,6 +5,7 @@ from nltk import word_tokenize, download, sent_tokenize
 download('punkt')
 import logging
 import sys
+import re
 
 def configure_logging():
     logformat = logging.Formatter("%(asctime)s:%(levelname)s:%(message)s")
@@ -25,11 +26,9 @@ def configure_logging():
 
 
 def clean_txt(txt):
-    txt = crop_body(txt)
-    #txt = txt.lower()
     txt = re.sub("(\r?\n)+"," ", txt)
     txt = re.sub(" +"," ", txt)
-    txt = "".join(list(filter(lambda x: x not in '"#$%&\'()*+-/:;<=>@[\\]^_`{|}~', txt)))
+    txt = "".join(list(filter(lambda x: x not in '#$%&()*+/;<=>@[\\]^_`{|}~', txt)))
     return txt
 
 
@@ -73,3 +72,25 @@ def report(i,N,p,args):
     percent = i*100//N
     logging.info("{:3d}% parsed".format(percent))
     return True
+
+def mask_named_entities(txt, filtered_types=["PERSON","ORG", "GPE", "NORP"]):
+    entities = dd(set)
+    doc = nlp(txt, disable=["tagger","parser"])
+
+    for ent in doc.ents:
+        if ent.label_ in filtered_types:
+            entities[ent.label_].add(ent.text)
+
+    for ent_type, ents in entities.items():
+        for i,ent in enumerate(ents):
+            txt = re.sub(ent, "{}_{}".format(ent_type,i), txt)
+    
+    return txt
+
+def get_tags(txt):  
+    doc = nlp(txt, disable=["parser", "ner"])
+    return [as_ints(feature) for feature in zip(*map(lambda x: (x.pos_, x.tag_, x.dep_), doc))]
+
+def as_ints(feature):
+    fdict = {v: i for i,v in enumerate(set(feature))}
+    return list(map(lambda x: fdict[x], feature))
