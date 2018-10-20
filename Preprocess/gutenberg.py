@@ -5,6 +5,7 @@ from urllib.request import urlopen
 import pandas as pd
 import numpy as np
 import re
+import os
 
 
 def parse_metadata(gutenberg_path):
@@ -21,7 +22,7 @@ def parse_metadata(gutenberg_path):
         for i, metafile in enumerate(metafiles):
             book = {}
 
-            with open(gutenberg_path+"/ETEXT/"+metafile, "r") as html:
+            with open(os.path.join(gutenberg_path, "ETEXT", metafile), "r") as html:
                 bs = BS(html)
 
             tables = bs.find_all("table")
@@ -76,7 +77,7 @@ def get_texts(metadf, path=""):
         logging.debug("Loading EText {}: '{}' by {}".format(book["EText-No."], book["Title"], book["Author"]))
         try:  
             if path:
-                with ZipFile(path + book["Path"]) as zfile:
+                with ZipFile(os.path.join(path, book["Path"])) as zfile:
                     txt = zfile.read(zfile.namelist()[0])
             else:
                 txt = urlopen("http://www.gutenberg.org/files/{0}/{0}.txt".format(book["EText-No."])).read()

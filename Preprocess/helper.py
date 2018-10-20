@@ -6,6 +6,7 @@ download('punkt')
 import logging
 import sys
 import re
+import os
 
 def configure_logging():
     logformat = logging.Formatter("%(asctime)s:%(levelname)s:%(message)s")
@@ -55,16 +56,23 @@ def percentile_action(i, N, p, f, *fargs):
         return False
 
 def save_sents(i,N,p,args):
+    assert len(args) == 2
+    
+    data = args[0]
+    path = args[1] if args[1] else "."
+    
     percent = i*100//N
-    logging.info("{:3d}% parsed".format(percent))
+    filepath = os.path.join(path,"tokens_{}.pkl".format(percent//p))
+                            
+    logging.info("{:3d}% parsed - saving to {}".format(percent, filepath))
     
     try:
-        os.mkdir("tokens")
+        os.mkdir(path)
     except:
         pass
     
-    with open("tokens/w2v_tokens_{}.pkl".format(percent//p), "wb") as out:
-        pkl.dump(args[0], out)
+    with open(filepath, "wb") as out:
+        pkl.dump(data, out)
     
     return True
 

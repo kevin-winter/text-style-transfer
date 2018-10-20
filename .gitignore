@@ -1,5 +1,10 @@
 .ipynb_checkpoints/*
 __pycache__/*
 models/*
+
+Preprocess/.ipynb_checkpoints/*
+Preprocess/__pycache__/*
+
 *.log
+*.pkl
 .vscode/settings.json

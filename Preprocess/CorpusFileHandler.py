@@ -13,7 +13,7 @@ class CorpusFileHandler():
     def as_token_stream(self):
         yield from self.read()
 
-    def read(self):
+    def read(self, as_tokens=True):
         try:
             with open(self.path, 
                 mode = "rb" if self.__depickle else "r", 
@@ -30,8 +30,8 @@ class CorpusFileHandler():
 
                 else:
                     raise AttributeError("File type not supported yes")
-                  
-            if type(content) != list:
+            
+            if (type(content) != list) and as_tokens:
                 content = tokenize(content)
             
             return content
