@@ -1,12 +1,18 @@
-import numpy as np
 from bs4 import BeautifulSoup as BS
+from collections import defaultdict
+import numpy as np
 import pickle as pkl
-from nltk import word_tokenize, download, sent_tokenize
-download('punkt')
 import logging
 import sys
 import re
 import os
+
+from nltk import word_tokenize, download, sent_tokenize
+download('punkt')
+
+import spacy
+nlp = spacy.load('en')
+nlp.max_length = 100000000
 
 def configure_logging():
     logformat = logging.Formatter("%(asctime)s:%(levelname)s:%(message)s")
@@ -27,9 +33,9 @@ def configure_logging():
 
 
 def clean_txt(txt):
+    txt = re.sub("[^A-Za-z,.?! ]","", txt)
     txt = re.sub("(\r?\n)+"," ", txt)
     txt = re.sub(" +"," ", txt)
-    txt = "".join(list(filter(lambda x: x not in '#$%&()*+/;<=>@[\\]^_`{|}~', txt)))
     return txt
 
 
@@ -45,7 +51,7 @@ def crop_body(txt):
 
 
 def get_text(file):
-    bs_file = BS(file, from_encoding="UTF-8")
+    bs_file = BS(file, "lxml", from_encoding="UTF-8")
     return bs_file.find("text").getText()
 
 
@@ -81,8 +87,8 @@ def report(i,N,p,args):
     logging.info("{:3d}% parsed".format(percent))
     return True
 
-def mask_named_entities(txt, filtered_types=["PERSON","ORG", "GPE", "NORP"]):
-    entities = dd(set)
+def mask_named_entities(txt, filtered_types=["PERSON","ORG", "NORP","GPE"], maskwith=""):
+    entities = defaultdict(set)
     doc = nlp(txt, disable=["tagger","parser"])
 
     for ent in doc.ents:
@@ -91,14 +97,33 @@ def mask_named_entities(txt, filtered_types=["PERSON","ORG", "GPE", "NORP"]):
 
     for ent_type, ents in entities.items():
         for i,ent in enumerate(ents):
-            txt = re.sub(ent, "{}_{}".format(ent_type,i), txt)
+            replacement = maskwith if maskwith else "{}_{}".format(ent_type,i)
+            txt = re.sub(" {} ".format(ent), " {} ".format(replacement), txt)
     
     return txt
 
+def index(entity, iterable):
+    try:
+        return iterable.index(entity)
+    except:
+        return -1
+
 def get_tags(txt):  
     doc = nlp(txt, disable=["parser", "ner"])
-    return [as_ints(feature) for feature in zip(*map(lambda x: (x.pos_, x.tag_, x.dep_), doc))]
+    return np.array(list(zip(*map(lambda x: (x.text, x.pos_, x.tag_), doc))))
 
 def as_ints(feature):
     fdict = {v: i for i,v in enumerate(set(feature))}
     return list(map(lambda x: fdict[x], feature))
+
+def w2v_sent_mapper(sents):
+    return np.array(list(map(lambda sent: w2v_word_mapper(sent), sents)))
+
+def w2v_word_mapper(words):
+    return np.array(list(map(lambda word: get_word_vector(word), words)))
+    
+def get_word_vector(word):
+    try:
+        return w2v.wv[word]
+    except:
+        return w2v.wv["unknown"]
