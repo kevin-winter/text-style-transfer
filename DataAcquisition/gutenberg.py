@@ -45,6 +45,65 @@ def parse_metadata(gutenberg_path):
         pd.to_pickle(df,"gutenberg_metadata.pkl")
     
     return metadf
+def parse_xml_metadata(tei_folder_path):
+    """Parses metadata files from Gutenberg TEI-XML files to create metadata dataframe."""
+    try:
+        metadata = pd.read_pickle("gutenberg_metadata_fromxml.pkl")
+        
+    except:
+        docs = list(map(lambda x: os.path.join(tei_folder_path, x), os.listdir(tei_folder_path)))
+        
+        meta = list(map(parse_xml_file, docs));
+        metadata = pd.DataFrame(meta)
+        
+        pd.to_pickle(metadata,"gutenberg_metadata_fromxml.pkl")
+    
+    return metadata
+
+def parse_xml_file(filename):
+    with open(filename, "r", errors="ignore") as xml:
+        try:
+            book = parse_xml_book(xml)
+        except:
+            book = {}
+        
+    book["path"] = filename
+    return book
+
+def parse_xml_book(xml):
+    bs = BS(xml)
+
+    header = bs.tei.teiheader
+    file = header.filedesc
+    profile = header.profiledesc
+
+    imprint = file.sourcedesc.biblstruct.monogr.imprint
+
+
+    book = {}
+    book["title"] = file.titlestmt.title.text
+    book["lang"] = profile.langusage.language.text
+
+    book["author_fullname"] = file.titlestmt.author.text
+    
+    
+    if file.sourcedesc.listperson:
+        author = file.sourcedesc.listperson.person
+        book["author_forename"] = author.persname.forename.text
+        book["author_lastname"] = author.persname.surname.text
+        book["author_sex"] = author.sex.text
+        book["author_nationality"] = author.nationality.text
+        book["author_birthdate"] = author.birth.date.text
+        book["author_deathdate"] = author.death.date.text
+
+    book["year_published"] = imprint.date.text
+    book["country_published"] = imprint.pubplace.country.text
+
+
+    book["lc_class"] = profile.textclass.classcode.text
+    book["keywords"] = ", ".join(map(lambda x: x.text, profile.findAll("term")))
+    
+    return book
 
 
 def filter_meta(metadf, author="", language="English",title="",years=""):

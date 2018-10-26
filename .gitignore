@@ -2,8 +2,11 @@
 __pycache__/*
 models/*
 
+DataAcquisition/data/*
+
 Preprocess/.ipynb_checkpoints/*
 Preprocess/__pycache__/*
+Preprocess/w2v_models/*
 
 *.log
 *.pkl

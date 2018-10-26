@@ -1,27 +1,45 @@
+from nltk import word_tokenize, download, sent_tokenize
 from bs4 import BeautifulSoup as BS
 from collections import defaultdict
+from gensim.models import Word2Vec
 import numpy as np
 import pickle as pkl
 import logging
+import spacy
 import sys
 import re
 import os
 
-from nltk import word_tokenize, download, sent_tokenize
-download('punkt')
+_nlp, _w2v = None, None
+logfile = "_log.log"
+w2v_path = "./w2v_models/gutenberg_w2v_5e.model"
 
-import spacy
-nlp = spacy.load('en')
-nlp.max_length = 100000000
 
-def configure_logging():
+def w2v():
+    global _w2v
+    if not _w2v:
+        _w2v = Word2Vec.load(w2v_path)
+    return _w2v
+
+def nlp():
+    global _nlp
+    if not _nlp:
+        _nlp = spacy.load('en')
+        _nlp.max_length = 100000000
+    return _nlp
+
+def init_config():
+    download('punkt')
+    configure_logging(logfile)
+    
+def configure_logging(logfile):
     logformat = logging.Formatter("%(asctime)s:%(levelname)s:%(message)s")
 
     consoleLogger = logging.StreamHandler(sys.stdout)
     consoleLogger.setFormatter(logformat)
     consoleLogger.setLevel(logging.INFO)
 
-    fileLogger = logging.FileHandler(filename='log.log', mode='a')
+    fileLogger = logging.FileHandler(filename=logfile, mode='a')
     fileLogger.setFormatter(logformat)
     fileLogger.setLevel(logging.DEBUG)
 
@@ -30,30 +48,6 @@ def configure_logging():
 
     logger.addHandler(consoleLogger)
     logger.addHandler(fileLogger)
-
-
-def clean_txt(txt):
-    txt = re.sub("[^A-Za-z,.?! ]","", txt)
-    txt = re.sub("(\r?\n)+"," ", txt)
-    txt = re.sub(" +"," ", txt)
-    return txt
-
-
-def tokenize(txt):
-    return [word_tokenize(sentence) for sentence in sent_tokenize(txt.lower())]
-
-
-def crop_body(txt):
-    txt = re.sub(r"\*\*\* ?start.*\*\*\*\r?\n", "***START***", txt, flags=re.I)
-    txt = re.sub(r"\*\*\* ?end.*\*\*\*\r?\n", "***END***", txt, flags=re.I)
-    txt = txt[txt.find("***START***")+11:txt.find("***END***")]
-    return txt
-
-
-def get_text(file):
-    bs_file = BS(file, "lxml", from_encoding="UTF-8")
-    return bs_file.find("text").getText()
-
 
 def percentile_action(i, N, p, f, *fargs):
     if not i%np.ceil(N*p/100) or i==N:
@@ -87,34 +81,33 @@ def report(i,N,p,args):
     logging.info("{:3d}% parsed".format(percent))
     return True
 
-def mask_named_entities(txt, filtered_types=["PERSON","ORG", "NORP","GPE"], maskwith=""):
-    entities = defaultdict(set)
-    doc = nlp(txt, disable=["tagger","parser"])
-
-    for ent in doc.ents:
-        if ent.label_ in filtered_types:
-            entities[ent.label_].add(ent.text)
-
-    for ent_type, ents in entities.items():
-        for i,ent in enumerate(ents):
-            replacement = maskwith if maskwith else "{}_{}".format(ent_type,i)
-            txt = re.sub(" {} ".format(ent), " {} ".format(replacement), txt)
-    
-    return txt
-
 def index(entity, iterable):
     try:
         return iterable.index(entity)
     except:
         return -1
 
-def get_tags(txt):  
-    doc = nlp(txt, disable=["parser", "ner"])
-    return np.array(list(zip(*map(lambda x: (x.text, x.pos_, x.tag_), doc))))
 
-def as_ints(feature):
-    fdict = {v: i for i,v in enumerate(set(feature))}
-    return list(map(lambda x: fdict[x], feature))
+
+
+def clean_txt(txt):
+    txt = re.sub("[^A-Za-z,.?! ]","", txt)
+    txt = re.sub("(\r?\n)+"," ", txt)
+    txt = re.sub(" +"," ", txt)
+    return txt
+
+def tokenize(txt):
+    return [word_tokenize(sentence) for sentence in sent_tokenize(txt.lower())]
+
+def crop_body(txt):
+    txt = re.sub(r"\*\*\* ?start.*\*\*\*\r?\n", "***START***", txt, flags=re.I)
+    txt = re.sub(r"\*\*\* ?end.*\*\*\*\r?\n", "***END***", txt, flags=re.I)
+    txt = txt[txt.find("***START***")+11:txt.find("***END***")]
+    return txt
+
+def get_text(file):
+    bs_file = BS(file, "lxml", from_encoding="UTF-8")
+    return bs_file.find("text").getText()
 
 def w2v_sent_mapper(sents):
     return np.array(list(map(lambda sent: w2v_word_mapper(sent), sents)))
@@ -124,6 +117,6 @@ def w2v_word_mapper(words):
     
 def get_word_vector(word):
     try:
-        return w2v.wv[word]
+        return w2v().wv[word]
     except:
-        return w2v.wv["unknown"]
+        return w2v().wv["unknown"]
