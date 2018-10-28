@@ -1,13 +1,9 @@
-.ipynb_checkpoints/*
-__pycache__/*
-models/*
-
-DataAcquisition/data/*
-
-Preprocess/.ipynb_checkpoints/*
-Preprocess/__pycache__/*
-Preprocess/w2v_models/*
+.ipynb_checkpoints/
+__pycache__
+.vscode
 
 *.log
 *.pkl
-.vscode/settings.json
+
+DataAcquisition/data/
+Preprocess/w2v_models/

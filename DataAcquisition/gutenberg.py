@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import re
 import os
+from shutil import copy
 
 
 def parse_metadata(gutenberg_path):
@@ -23,7 +24,7 @@ def parse_metadata(gutenberg_path):
             book = {}
 
             with open(os.path.join(gutenberg_path, "ETEXT", metafile), "r") as html:
-                bs = BS(html)
+                bs = BS(html, "lxml")
 
             tables = bs.find_all("table")
             attrs = tables[0].find_all("tr")
@@ -45,6 +46,8 @@ def parse_metadata(gutenberg_path):
         pd.to_pickle(df,"gutenberg_metadata.pkl")
     
     return metadf
+
+
 def parse_xml_metadata(tei_folder_path):
     """Parses metadata files from Gutenberg TEI-XML files to create metadata dataframe."""
     try:
@@ -60,6 +63,7 @@ def parse_xml_metadata(tei_folder_path):
     
     return metadata
 
+
 def parse_xml_file(filename):
     with open(filename, "r", errors="ignore") as xml:
         try:
@@ -70,8 +74,9 @@ def parse_xml_file(filename):
     book["path"] = filename
     return book
 
+
 def parse_xml_book(xml):
-    bs = BS(xml)
+    bs = BS(xml, "lxml")
 
     header = bs.tei.teiheader
     file = header.filedesc
@@ -146,3 +151,13 @@ def get_texts(metadf, path=""):
             logging.error("ERROR Could not load EText {}: {} ({})".format(book["EText-No."], book["Title"], e))
               
     return texts
+
+
+def copy_files(metadf, folder):
+    try:
+        os.mkdir(folder)
+    except:
+        pass
+    
+    for path in metadf.path:
+        copy(path, folder)

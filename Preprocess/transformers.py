@@ -1,6 +1,12 @@
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, MinMaxScaler, LabelBinarizer
+from sklearn.pipeline import Pipeline, FeatureUnion
+from sklearn.feature_extraction.image import extract_patches
+from sklearn.model_selection import train_test_split
+
 from collections import defaultdict
-from pandas import DataFrame
+import pandas as pd
+from scipy.sparse.csr import csr_matrix
 
 from helper import *
 
@@ -65,7 +71,7 @@ class TextFeatureExtractor(BaseEstimator, TransformerMixin):
     def transform(self, X):
         doc = nlp()(X.lower(), disable=["ner"])
         feature_map = lambda x: (x.text, x.i - x.sent.start, x.sent.end - x.i, x.pos_, x.tag_)
-        return DataFrame(list(map(feature_map, doc)))
+        return pd.DataFrame(list(map(feature_map, doc)))
 
 
 class TextCleaner(BaseEstimator, TransformerMixin):
@@ -93,4 +99,98 @@ class SpacyAnalyser(BaseEstimator, TransformerMixin):
     
     def transform(self, X):
         return nlp()(X)
+
     
+class PatchExtractor(BaseEstimator, TransformerMixin):
+    def __init__(self, patchsize, stepsize):
+        self.patchsize = patchsize
+        self.stepsize = stepsize
+        
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X):
+        if type(X) == csr_matrix:
+            X = X.toarray()
+        if type(X) == pd.DataFrame:
+            X = X.as_matrix()
+        return np.rollaxis(extract_patches(X, (self.patchsize, X.shape[1]), self.stepsize), 1, 4)
+
+
+class FeatureEncoder(Pipeline):
+    def __init__(self, patchsize, patchstep):
+        super().__init__([("_union", FeatureUnion([
+                ("_W2V", Pipeline([
+                    ("_ColumnSelector_Words", ColumnSelector([0])),
+                    ("TextVectorizer", TextVectorizer())
+                ])),
+                ("_OtherFeatures", Pipeline([
+                    ("_ColumnSelector_!Words", ColumnSelector([0], inverse=True)),
+                    ("_union", FeatureUnion([
+                        ("_discrete_features", Pipeline([
+                            ("TypeSelector_Discrete", TypeSelector(["object", "category"])),
+                            ("LabelBinarizer", OneHotEncoder())
+                        ])),
+                        ("_continous_features", Pipeline([
+                            ("TypeSelector_Continuous", TypeSelector(["number"])),
+                            ("MinMaxScaler", MinMaxScaler(feature_range=[-1,1]))
+                        ]))
+                    ]))
+                ])),
+            ])),
+            ("PatchExtractor", PatchExtractor(patchsize, patchstep))
+        ])
+        
+
+class TextParser(Pipeline):
+    def __init__(self):
+        super().__init__([
+            ("TextCleaner",TextCleaner()),
+            ("NamedEntityMasker", NamedEntityMasker(["PERSON"], maskwith="person")),
+            ("TextFeatureExtractor", TextFeatureExtractor()),
+        ])
+        
+## HELPER 
+    
+def apply_pipeline(X, pipeline, chunksize):
+    Xt = None
+    start = 0
+    chunksize = 10**6
+    while True:
+        print("Iteration {} / {}".format(start // chunksize, len(X) // chunksize), end="\r")
+        part = X[start:start+chunksize]
+        Xt = pd.concat((Xt, pipeline.fit_transform(part)), ignore_index=True)
+
+        if len(part) < chunksize:
+            break
+
+        start += chunksize
+    
+    return Xt
+
+def get_data(authors):
+    features = list(map(load_features, authors))
+
+    labels = np.concatenate([np.ones(l)*i for i,l in enumerate(map(len, features))])
+    features = pd.concat(features, ignore_index=True)
+
+    patchsize, patchstep = 100, 50
+    X = FeatureEncoder(patchsize, patchstep).fit_transform(features)
+    y = np.median(extract_patches(labels, patchsize, patchstep),axis=1)
+
+    return train_test_split(X, y, test_size=0.33, random_state=42, stratify=y)
+
+
+def load_features(author):
+    path = os.path.join(os.path.dirname(__file__), 
+        "../DataAcquisition/data/{0}/{0}_features.pkl".format(author))
+    with open(path, "rb") as f:
+        features = pkl.load(f)
+    return features
+
+def load_text(author):
+    path = os.path.join(os.path.dirname(__file__), 
+        "../DataAcquisition/data/{0}/{0}_string.pkl".format(author))
+    with open(path, "rb") as f:
+        string = pkl.load(f)
+    return string

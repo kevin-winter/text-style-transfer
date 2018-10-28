@@ -2,7 +2,7 @@ import os
 import pickle as pkl
 from helper import *
 
-class CorpusFileHandler():
+class CorpusFileHandler:
     def __init__(self, path):
         self.path = path
         

@@ -10,25 +10,24 @@ import sys
 import re
 import os
 
-_nlp, _w2v = None, None
-logfile = "_log.log"
-w2v_path = "./w2v_models/gutenberg_w2v_5e.model"
-
-
 def w2v():
     global _w2v
-    if not _w2v:
-        _w2v = Word2Vec.load(w2v_path)
+    if "_w2v" not in globals():
+        _w2v = Word2Vec.load(_w2v_path)
     return _w2v
 
 def nlp():
     global _nlp
-    if not _nlp:
+    if "_nlp" not in globals():
         _nlp = spacy.load('en')
         _nlp.max_length = 100000000
     return _nlp
 
-def init_config():
+def init_config(logfile= "_log.log", w2v_path = None):
+    global _w2v_path
+    filepath = os.path.abspath(os.path.dirname(__file__))
+    _w2v_path = w2v_path if w2v_path else os.path.join(filepath,"w2v_models/gutenberg_w2v_5e.model")
+    
     download('punkt')
     configure_logging(logfile)
     
