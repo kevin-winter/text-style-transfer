@@ -65,13 +65,15 @@ class NamedEntityMasker(BaseEstimator, TransformerMixin):
 
     
 class TextFeatureExtractor(BaseEstimator, TransformerMixin):
+    def __init__(self, feature_mapping = lambda x: (x.text, x.i - x.sent.start, x.sent.end - x.i, x.pos_, x.tag_)):
+        self.feature_mapping = feature_mapping
+        
     def fit(self, X, y=None):
         return self
     
     def transform(self, X):
         doc = nlp()(X.lower(), disable=["ner"])
-        feature_map = lambda x: (x.text, x.i - x.sent.start, x.sent.end - x.i, x.pos_, x.tag_)
-        return pd.DataFrame(list(map(feature_map, doc)))
+        return pd.DataFrame(list(map(self.feature_mapping, doc)))
 
 
 class TextCleaner(BaseEstimator, TransformerMixin):
@@ -129,7 +131,7 @@ class FeatureEncoder(Pipeline):
                     ("_union", FeatureUnion([
                         ("_discrete_features", Pipeline([
                             ("TypeSelector_Discrete", TypeSelector(["object", "category"])),
-                            ("LabelBinarizer", OneHotEncoder())
+                            ("OneHotEncoder", OneHotEncoder(handle_unknown="ignore"))
                         ])),
                         ("_continous_features", Pipeline([
                             ("TypeSelector_Continuous", TypeSelector(["number"])),
@@ -147,7 +149,7 @@ class TextParser(Pipeline):
         super().__init__([
             ("TextCleaner",TextCleaner()),
             ("NamedEntityMasker", NamedEntityMasker(["PERSON"], maskwith="person")),
-            ("TextFeatureExtractor", TextFeatureExtractor()),
+            ("TextFeatureExtractor", TextFeatureExtractor())
         ])
         
 ## HELPER 
@@ -159,7 +161,14 @@ def apply_pipeline(X, pipeline, chunksize):
     while True:
         print("Iteration {} / {}".format(start // chunksize, len(X) // chunksize), end="\r")
         part = X[start:start+chunksize]
-        Xt = pd.concat((Xt, pipeline.fit_transform(part)), ignore_index=True)
+        transformed = pipeline.fit_transform(part)
+        
+        if type(transformed) == csr_matrix:
+            transformed = pd.DataFrame(transformed.todense())
+        elif type(transformed) in (np.ndarray, np.array, pd.DataFrame):
+            transformed = pd.DataFrame(transformed)
+        
+        Xt = pd.concat((Xt, transformed), ignore_index=True)
 
         if len(part) < chunksize:
             break

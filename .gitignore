@@ -7,3 +7,4 @@ __pycache__
 
 DataAcquisition/data/
 Preprocess/w2v_models/
+tensorboard
