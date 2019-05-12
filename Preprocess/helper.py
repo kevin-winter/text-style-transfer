@@ -31,19 +31,19 @@ def init_config(logfile= "_log.log", w2v_path = None):
     download('punkt')
     configure_logging(logfile)
     
-def configure_logging(logfile):
+def configure_logging(logfile, console=logging.INFO):
     logformat = logging.Formatter("%(asctime)s:%(levelname)s:%(message)s")
 
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    
     consoleLogger = logging.StreamHandler(sys.stdout)
     consoleLogger.setFormatter(logformat)
-    consoleLogger.setLevel(logging.INFO)
+    consoleLogger.setLevel(console)
 
     fileLogger = logging.FileHandler(filename=logfile, mode='a')
     fileLogger.setFormatter(logformat)
     fileLogger.setLevel(logging.DEBUG)
-
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
 
     logger.addHandler(consoleLogger)
     logger.addHandler(fileLogger)
@@ -96,7 +96,10 @@ def clean_txt(txt):
     return txt
 
 def tokenize(txt):
-    return [word_tokenize(sentence) for sentence in sent_tokenize(txt.lower())]
+    if isinstance(txt, list):
+        return [word_tokenize(sentence) for t in txt for sentence in sent_tokenize(t.lower())]
+    else:
+        return [word_tokenize(sentence) for sentence in sent_tokenize(txt.lower())]
 
 def crop_body(txt):
     txt = re.sub(r"\*\*\* ?start.*\*\*\*\r?\n", "***START***", txt, flags=re.I)
@@ -106,7 +109,12 @@ def crop_body(txt):
 
 def get_text(file):
     bs_file = BS(file, "lxml", from_encoding="UTF-8")
-    return bs_file.find("text").getText()
+    text = bs_file.find("text")
+    chapters = text.find_all('div', {'type': 'chapter'})
+    if len(chapters) > 0:
+        return [chap.getText() for chap in chapters if len(chap.getText()) > 10]
+    else:
+        return [text.getText()]
 
 def w2v_sent_mapper(sents):
     return np.array(list(map(lambda sent: w2v_word_mapper(sent), sents)))

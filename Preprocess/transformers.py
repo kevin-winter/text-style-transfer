@@ -72,7 +72,7 @@ class TextFeatureExtractor(BaseEstimator, TransformerMixin):
         return self
     
     def transform(self, X):
-        doc = nlp()(X.lower(), disable=["ner"])
+        doc = nlp()(X, disable=["ner"])
         return pd.DataFrame(list(map(self.feature_mapping, doc)))
 
 

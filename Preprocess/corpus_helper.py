@@ -11,10 +11,10 @@ class CorpusFileHandler:
         self.__isTXT = path.endswith(".txt")
 
     def as_token_stream(self):
-        yield from self.read()
+        yield from self.read(True)
         
     def as_string_stream(self):
-        yield from self.read()
+        yield from self.read(False)
     
     def as_stream(self, tokenize):
         yield from self.read(tokenize)
@@ -37,7 +37,7 @@ class CorpusFileHandler:
                 else:
                     raise AttributeError("File type not supported yes")
             
-            if (type(content) != list) and as_tokens:
+            if as_tokens:
                 content = tokenize(content)
             
             return content
@@ -61,6 +61,9 @@ class CorpusStreamer:
         logging.info("CorpusStreamer: Loading {} files.".format(nr_files))
         
         for i, fname in enumerate(files):
+            if os.path.isdir(os.path.join(self._path, fname)):
+                continue
+                
             logging.debug("CorpusStreamer: Loading: " + fname)
             yield from CorpusFileHandler(os.path.join(self._path, fname)).as_stream(self._tokenize)
 
