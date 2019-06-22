@@ -1,10 +1,11 @@
 .ipynb_checkpoints/
 __pycache__
 .vscode
+.idea
 
 *.log
 *.pkl
 
-DataAcquisition/data/
-Preprocess/w2v_models/
-tensorboard
+data
+logs
+src/muse

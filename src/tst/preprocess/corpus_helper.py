@@ -2,7 +2,7 @@ import os
 import pickle as pkl
 import logging
 
-from Preprocess.helper import get_text, crop_body, tokenize, percentile_action, report, save_sents
+from tst.preprocess.helper import get_text, crop_body, tokenize, percentile_action, report, save_sents
 
 
 class CorpusFileHandler:

@@ -14,7 +14,7 @@ import pandas as pd
 from scipy.sparse.csr import csr_matrix
 
 # SELECTORS
-from Preprocess.helper import nlp, w2v_word_mapper
+from tst.preprocess.helper import nlp
 
 
 class ColumnSelector(BaseEstimator, TransformerMixin):
@@ -206,14 +206,14 @@ def get_data(authors):
 
 
 def load_features(author):
-    path = os.path.join(os.path.dirname(__file__), "../DataAcquisition/data/{0}/{0}_features.pkl".format(author))
+    path = os.path.join(os.path.dirname(__file__), "../data/data/{0}/{0}_features.pkl".format(author))
     with open(path, "rb") as f:
         features = pkl.load(f)
     return features
 
 
 def load_text(author):
-    path = os.path.join(os.path.dirname(__file__), "../DataAcquisition/data/{0}/{0}_string.pkl".format(author))
+    path = os.path.join(os.path.dirname(__file__), "../data/data/{0}/{0}_string.pkl".format(author))
     with open(path, "rb") as f:
         string = pkl.load(f)
     return string

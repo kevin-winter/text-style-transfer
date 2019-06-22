@@ -12,9 +12,9 @@ import wordfreq
 from networkx import from_dict_of_dicts, shortest_path
 from sklearn.pipeline import Pipeline
 
-from Preprocess.corpus_helper import CorpusStreamer
-from Preprocess.helper import configure_logging, nlp, psum
-from Preprocess.transformers import TextFeatureExtractor, TextCleaner
+from tst.preprocess.corpus_helper import CorpusStreamer
+from tst.preprocess.helper import configure_logging, nlp, psum
+from tst.preprocess.transformers import TextFeatureExtractor, TextCleaner
 
 sp_parser = spacy.load("en")
 configure_logging('markov.log', logging.DEBUG)

@@ -128,21 +128,6 @@ def get_text(file):
         return [text.getText()]
 
 
-def w2v_sent_mapper(sents):
-    return np.array(list(map(lambda sent: w2v_word_mapper(sent), sents)))
-
-
-def w2v_word_mapper(words):
-    return np.array(list(map(lambda word: get_word_vector(word), words)))
-
-
-def get_word_vector(word):
-    try:
-        return w2v().wv[word]
-    except:
-        return w2v().wv["unknown"]
-
-
 def psum(it):
     pool = Pool(cpu_count())
     for i in range(int(np.ceil(np.log2(len(it))))):
