@@ -168,10 +168,9 @@ class TextParser(Pipeline):
 # HELPER
 
 
-def apply_pipeline(X, pipeline, chunksize):
+def apply_pipeline(X, pipeline, chunksize=10 ** 6):
     Xt = None
     start = 0
-    chunksize = 10 ** 6
     while True:
         print("Iteration {} / {}".format(start // chunksize, len(X) // chunksize), end="\r")
         part = X[start:start + chunksize]

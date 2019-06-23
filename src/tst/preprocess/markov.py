@@ -14,7 +14,7 @@ from networkx import from_dict_of_dicts, shortest_path
 from sklearn.pipeline import Pipeline
 
 from tst.io import AUTHORS
-from tst.preprocess.corpus_helper import CorpusStreamer
+from tst.preprocess.corpus import CorpusStreamer
 from tst.preprocess.helper import configure_logging, nlp, psum
 from tst.preprocess.transformers import TextFeatureExtractor, TextCleaner
 
@@ -164,26 +164,27 @@ def make_sentence_containing(markovchain, words, tokenize=True, strict=False):
     return ' '.join(sentence[:-1])
 
 
-def find_sentence_containing(markovchain, words, tokenize=True, max_tries=10000, max_words=25):
+def find_sentence_containing(markovchain, words, tokenize=True, max_tries=10000, max_words=25, threshold=.7):
     if tokenize:
         words = list(map(limit_style_tokens, map(to_style_tokens, words)))
 
     for i in range(max_tries):
         sent = markovchain.make_sentence(tries=100, max_words=max_words)
         tmp_sent = sent
+        matches = 0
 
         for word in words:
             if word in tmp_sent:
                 tmp_sent = tmp_sent.replace(word, '', 1)
-            else:
-                sent = ''
-                break
+                matches += 1
 
-        if sent:
+        if matches / len(words) > threshold:
             print('Finding a sentence took {} tries.'.format(i))
             return sent
         else:
             continue
+
+    raise AttributeError('No sentence for given words found.')
 
 
 def safe_find(array, item):
@@ -191,6 +192,10 @@ def safe_find(array, item):
         return array.index(item)
     except:
         return -1
+
+
+def attention(words):
+    return dict(zip(words, [1] * len(words)))
 
 
 def log_normalize_dict(d):
@@ -244,6 +249,7 @@ def beam_search(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smo
         layer_candidates = queue if variable_length and i != 0 else {}
 
         for prev_words, prev_score in queue.items():
+            filtered_context_words = set(context_words) - set(prev_words)
             # cur_tag = pos_sent[len(prev_words)] if len(prev_words) < len(pos_sent) else ''
             if (prev_words and prev_words[-1] == end_token) or len(prev_words) == max_length:
                 if not variable_length:
@@ -255,7 +261,7 @@ def beam_search(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smo
 
             transition_candidates = normalize_dict(word_mm.chain.model.get(tuple(prev_state), {}))
             emission_candidates = normalize_dict(emission_probs[cur_tag])
-            context_candidates = normalize_dict(context_words)
+            context_candidates = normalize_dict(attention(filtered_context_words))
 
             merged_probs = pd.DataFrame([transition_candidates, emission_candidates, context_candidates]) \
                 .fillna(smoothing_prob) \
@@ -264,7 +270,7 @@ def beam_search(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smo
             merged_probs[end_token] = merged_probs.get(end_token, smoothing_prob) + eos_norm(n, n_t, eos_norm_weight,
                                                                                              False)
 
-            reduction_words = set(prev_words[-3:]) or (set(prev_words) and set(context_words))
+            reduction_words = set(prev_words[-3:]) #or (set(prev_words) and set(context_words))
             for word in reduction_words:
                 merged_probs[word] = smoothing_prob if word in merged_probs else 0
 
@@ -286,9 +292,9 @@ def beam_search(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smo
         if set(queue.keys()) == set(old_queue.keys()):
             break
 
-        #         for words, score in queue.items():
-        #             print(' '.join(words), score)
-        #         print()
+        # for words, score in queue.items():
+        #     print(' '.join(words), score)
+        # print()
         i += 1
 
     results = dict(filter(lambda x: end_token in x[0], queue.items()))

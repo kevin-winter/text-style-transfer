@@ -16,4 +16,10 @@ GB_DATA = pjoin(DATA, 'gbdata')
 GB_CD = pjoin(GB_DATA, 'cd')
 GB_DOCS = pjoin(GB_DATA, 'xml')
 
+MUSE = pjoin(LIBS, 'muse')
+GUTENTAG = pjoin(LIBS, 'GutenTag')
+TRANSLATED = pjoin(MUSE, 'results')
 
+
+def translation_embedding_dir(author):
+    return sorted([pjoin(TRANSLATED, author, f) for f in os.listdir(pjoin(TRANSLATED, author))], key=os.path.getmtime)[0]
