@@ -6,6 +6,6 @@ __pycache__
 *.log
 *.pkl
 
-data
-logs
-src/muse
+/data
+/logs
+/libs

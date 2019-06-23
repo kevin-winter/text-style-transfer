@@ -1,5 +1,6 @@
 import logging
 import os
+from os.path import join as pjoin
 import pickle as pkl
 import re
 from collections import defaultdict, Counter
@@ -12,12 +13,10 @@ import wordfreq
 from networkx import from_dict_of_dicts, shortest_path
 from sklearn.pipeline import Pipeline
 
+from tst.io import AUTHORS
 from tst.preprocess.corpus_helper import CorpusStreamer
 from tst.preprocess.helper import configure_logging, nlp, psum
 from tst.preprocess.transformers import TextFeatureExtractor, TextCleaner
-
-sp_parser = spacy.load("en")
-configure_logging('markov.log', logging.DEBUG)
 
 
 def starts_with_vowel(word):
@@ -55,8 +54,19 @@ def to_style_tokens(text):
     return re.sub(" ([.!?])[^ ]+", "\g<1>", tokens_text)
 
 
-def pos_emission_prob(folder_path):
-    corpus = CorpusStreamer(folder_path, False)
+def limit_style_tokens(word, length=4):
+    return '_'.join(word.split('_')[:length])
+
+
+def find_token_limiting(nodes, word):
+    np.random.shuffle(nodes)
+    short_nodes = list(map(limit_style_tokens, nodes))
+    return nodes[short_nodes.index(limit_style_tokens(word))]
+
+
+def pos_emission_prob(author):
+    docs_path = pjoin(AUTHORS, author, 'books')
+    corpus = CorpusStreamer(docs_path, False)
     counts = defaultdict(Counter)
 
     for text in corpus:
@@ -64,13 +74,18 @@ def pos_emission_prob(folder_path):
         for w, t in zip(doc, map(lambda x: '_'.join(map(str, x)), map(mapping, doc))):
             counts[t][w.orth_.lower()] += 1
 
-    save_folder = os.path.join(folder_path, 'parsed')
+    save_folder = pjoin(AUTHORS, author, 'parsed')
     os.makedirs(save_folder, exist_ok=True)
 
-    with open(os.path.join(save_folder, 'emission_probs.pkl'), 'wb') as f:
+    with open(pjoin(save_folder, 'emission_probs.pkl'), 'wb') as f:
         pkl.dump(counts, f)
 
     return counts
+
+
+def load_emission_probs(author):
+    with open(pjoin(AUTHORS, author, 'parsed', 'emission_probs.pkl'), 'rb') as f:
+        return pkl.load(f)
 
 
 class LowerMarkovifyText(markovify.Text):
@@ -78,8 +93,9 @@ class LowerMarkovifyText(markovify.Text):
         return re.split(super().word_split_pattern, sentence.lower())
 
 
-def pos_markov_chain(folder_path, state_size=2):
-    corpus = CorpusStreamer(folder_path, False)
+def pos_markov_chain(author, state_size=2):
+    docs_path = pjoin(AUTHORS, author, 'books')
+    corpus = CorpusStreamer(docs_path, False)
     saved_chain = None
     saved_pos_chain = None
 
@@ -91,7 +107,7 @@ def pos_markov_chain(folder_path, state_size=2):
         pos_chain = markovify.Text(to_style_tokens(text), state_size=state_size, retain_original=False)
         saved_pos_chain = markovify.combine([saved_pos_chain, pos_chain]) if saved_pos_chain else pos_chain
 
-    save_folder = os.path.join(folder_path, 'parsed')
+    save_folder = pjoin(AUTHORS, author, 'parsed')
     os.makedirs(save_folder, exist_ok=True)
 
     with open(os.path.join(save_folder, 'word_mm.json'), 'w') as f:
@@ -101,6 +117,16 @@ def pos_markov_chain(folder_path, state_size=2):
         f.write(saved_pos_chain.to_json())
 
     return saved_chain, saved_pos_chain
+
+
+def load_chain(author):
+    with open(pjoin(AUTHORS, author, 'parsed', 'word_mm.json'), 'r') as f:
+        return LowerMarkovifyText.from_json(f.read())
+
+
+def load_pos_chain(author):
+    with open(pjoin(AUTHORS, author, 'parsed', 'pos_mm.json'), 'r') as f:
+        return markovify.Text.from_json(f.read())
 
 
 def vocabulary(chain):
@@ -118,16 +144,6 @@ def markov_to_graph(markovchain):
         markovmodel[k[-1]] = {_k: {"weight": -np.log(_v / _sum)} for _k, _v in v.items()}
 
     return from_dict_of_dicts(markovmodel)
-
-
-def limit_style_tokens(word, length=4):
-    return '_'.join(word.split('_')[:length])
-
-
-def find_token_limiting(nodes, word):
-    np.random.shuffle(nodes)
-    short_nodes = list(map(limit_style_tokens, nodes))
-    return nodes[short_nodes.index(limit_style_tokens(word))]
 
 
 def make_sentence_containing(markovchain, words, tokenize=True, strict=False):

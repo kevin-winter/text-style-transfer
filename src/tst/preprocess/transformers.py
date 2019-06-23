@@ -14,7 +14,7 @@ import pandas as pd
 from scipy.sparse.csr import csr_matrix
 
 # SELECTORS
-from tst.preprocess.helper import nlp
+from tst.preprocess.helper import nlp, w2v
 
 
 class ColumnSelector(BaseEstimator, TransformerMixin):
@@ -104,7 +104,7 @@ class TextVectorizer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        return w2v_word_mapper(X.iloc[:, 0])
+        return w2v().wv.vectorize(X.iloc[:, 0])
 
 
 class SpacyAnalyser(BaseEstimator, TransformerMixin):

@@ -11,6 +11,9 @@ import spacy
 import sys
 import re
 import os
+from os.path import join as pjoin
+
+from tst.io import W2V, LOGS
 
 
 def w2v():
@@ -24,17 +27,16 @@ def nlp():
     global _nlp
     if "_nlp" not in globals():
         _nlp = spacy.load('en')
-        _nlp.max_length = 100000000
+        _nlp.max_length = 1e8
     return _nlp
 
 
-def init_config(logfile="_log.log", w2v_path=None):
+def init_config(logfile="_log.log", log_level=logging.DEBUG, w2v_path=None):
     global _w2v_path
-    filepath = os.path.abspath(os.path.dirname(__file__))
-    _w2v_path = w2v_path if w2v_path else os.path.join(filepath, "w2v_models/gutenberg_w2v_5e.model")
+    _w2v_path = w2v_path or W2V
 
     download('punkt')
-    configure_logging(logfile)
+    configure_logging(pjoin(LOGS, logfile), log_level)
 
 
 def configure_logging(logfile, console=logging.INFO):
@@ -73,11 +75,7 @@ def save_sents(i, N, p, args):
 
     logging.info("{:3d}% parsed - saving to {}".format(percent, filepath))
 
-    try:
-        os.mkdir(path)
-    except:
-        pass
-
+    os.makedirs(path, exist_ok=True)
     with open(filepath, "wb") as out:
         pkl.dump(data, out)
 

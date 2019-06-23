@@ -62,4 +62,4 @@ curse(Word2Vec, "evaluate_analogies", evaluate_analogies)
 
 curse(KeyedVectors, "save_word2vec_format_reduced", save_word2vec_format_reduced)
 curse(KeyedVectors, "vector_or_zeros", vector_or_zeros)
-curse(KeyedVectors, "vectorize", vector_or_zeros)
+curse(KeyedVectors, "vectorize", vectorize)
