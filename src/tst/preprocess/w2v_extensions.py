@@ -50,11 +50,14 @@ def vector_or_zeros(self, word):
         return np.zeros(self.vector_size)
 
 
-def vectorize(self, text=None, tokens=None, ignore_missing=True):
+def vectorize(self, text=None, tokens=None, ignore_missing=True, flatten=False):
     if text:
         tokens = tokenize(text)
         
-    return np.array([[self.vector_or_zeros(w) for w in s if w in self or not ignore_missing] for s in tokens])
+    if flatten:
+        return  np.array([self.vector_or_zeros(w) for s in tokens for w in s if w in self or not ignore_missing])
+    else:
+        return np.array([np.array([self.vector_or_zeros(w) for w in s if w in self or not ignore_missing]) for s in tokens])
 
             
 curse(Word2Vec, "create_and_train", classmethod(create_and_train))

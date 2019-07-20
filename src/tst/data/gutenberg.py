@@ -155,11 +155,7 @@ def get_texts(metadf, path=""):
     return texts
 
 
-def copy_files(metadf, folder):
-    try:
-        os.mkdir(folder)
-    except:
-        pass
-
-    for path in metadf.path:
-        copy(path, folder)
+def copy_files(df, src_folder, tgt_folder):
+    os.makedirs(tgt_folder, exist_ok=True)
+    for fname in df.path:
+        copy(pjoin(src_folder, fname), tgt_folder)

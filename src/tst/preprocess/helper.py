@@ -19,7 +19,7 @@ from tst.io import W2V, LOGS
 def w2v():
     global _w2v
     if "_w2v" not in globals():
-        _w2v = Word2Vec.load(_w2v_path)
+        _w2v = Word2Vec.load(W2V)
     return _w2v
 
 

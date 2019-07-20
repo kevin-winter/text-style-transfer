@@ -195,7 +195,15 @@ def safe_find(array, item):
 
 
 def attention(words):
-    return dict(zip(words, [1] * len(words)))
+    scalers = {
+        'PROPN': 5,
+        'NOUN': 4,
+        'VERB': 3,
+        'ADJ': 2
+    }
+
+    doc = nlp()(' '.join(words), disable=["ner"])
+    return {w.orth_: scalers.get(w.pos_, 1) for w in doc}
 
 
 def log_normalize_dict(d):
@@ -295,6 +303,85 @@ def beam_search(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smo
         # for words, score in queue.items():
         #     print(' '.join(words), score)
         # print()
+        i += 1
+
+    results = dict(filter(lambda x: end_token in x[0], queue.items()))
+    if len(results) == 0:
+        results = queue
+        best = max(results, key=results.get)
+        sent = ' '.join(best)
+    else:
+        best = max(results, key=results.get)
+        sent = ' '.join(best[:safe_find(best, end_token)])
+
+    print(sent)
+    return sent, queue[best]
+
+
+def beam_search2(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smoothing_prob=1e-6,
+                word_trans_weight=.5, emission_weight=.5, context_weight=.05, eos_norm_weight=.2, len_norm_weight=.7,
+                begin_token='___BEGIN__', end_token='___END__',
+                variable_length=True, max_length=30):
+
+    weights = [word_trans_weight, emission_weight, context_weight]
+    word_trans_weight, emission_weight, context_weight = np.array(weights) / sum(weights)
+    n_t = len(context_words)
+    queue = {tuple(): 0}
+    i = 0
+
+    while True:
+
+        # cur_tag = pos_sent[i] if i < len(pos_sent) else ''
+        layer_candidates = queue if variable_length and i != 0 else {}
+
+        for prev_words, prev_score in queue.items():
+            filtered_context_words = set(context_words) - set(prev_words)
+            # cur_tag = pos_sent[len(prev_words)] if len(prev_words) < len(pos_sent) else ''
+            if (prev_words and prev_words[-1] == end_token) or len(prev_words) == max_length:
+                if not variable_length:
+                    layer_candidates = {**layer_candidates, **{prev_words: prev_score}}
+                continue
+
+            n = len(prev_words)
+            prev_word_state = [begin_token] * (word_mm.chain.state_size - n) + list(prev_words[-word_mm.chain.state_size:])
+            prev_token_state = [begin_token] * (pos_mm.chain.state_size - n) + to_style_tokens(' '.join(list(prev_words[-word_mm.chain.state_size:]))).split()
+            print(prev_token_state)
+            pos_transition_candidates = normalize_dict(pos_mm.chain.model.get(tuple(prev_token_state), {}))
+            emission_candidates = Counter()
+            for tok, score in pos_transition_candidates.items():
+                emission_candidates.update({k: v * score for k, v in normalize_dict(emission_probs[tok]).items()})
+
+            print(len(emission_candidates))
+
+            transition_candidates = normalize_dict(word_mm.chain.model.get(tuple(prev_word_state), {}))
+            context_candidates = normalize_dict(attention(filtered_context_words))
+
+            merged_probs = pd.DataFrame([transition_candidates, emission_candidates, context_candidates]) \
+                .fillna(smoothing_prob) \
+                .apply(lambda x: sum(x * [word_trans_weight, emission_weight, context_weight]))
+
+            merged_probs[end_token] = merged_probs.get(end_token, smoothing_prob) + eos_norm(n, n_t, eos_norm_weight, False)
+
+            reduction_words = set(prev_words[-3:]) or (set(prev_words) and set(context_words))
+            for word in reduction_words:
+                merged_probs[word] = smoothing_prob if word in merged_probs else 0
+
+            merged_probs /= sum(merged_probs)
+            merged_log_probs = np.log(merged_probs)
+
+            selected_candidates = merged_log_probs.nlargest(beam_size)
+            selected_candidates = {tuple(prev_words) + (word,):
+                                       (prev_score * len_norm(n, n_t, len_norm_weight) + score) / len_norm(n + 1, n_t, len_norm_weight)
+                                   for word, score in selected_candidates.items()}
+            layer_candidates = {**layer_candidates, **selected_candidates}
+
+        old_queue = queue
+        queue = {k: layer_candidates[k] for k in
+                 sorted(layer_candidates, key=layer_candidates.get, reverse=True)[:beam_size]}
+
+        if set(queue.keys()) == set(old_queue.keys()):
+            break
+
         i += 1
 
     results = dict(filter(lambda x: end_token in x[0], queue.items()))

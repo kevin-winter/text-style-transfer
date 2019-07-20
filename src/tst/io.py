@@ -22,4 +22,4 @@ TRANSLATED = pjoin(MUSE, 'results')
 
 
 def translation_embedding_dir(author):
-    return sorted([pjoin(TRANSLATED, author, f) for f in os.listdir(pjoin(TRANSLATED, author))], key=os.path.getmtime)[0]
+    return sorted([pjoin(TRANSLATED, author, f) for f in os.listdir(pjoin(TRANSLATED, author))], key=os.path.getmtime)[-1]
