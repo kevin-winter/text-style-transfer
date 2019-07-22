@@ -36,8 +36,9 @@ def mapping(word):
             word.is_stop * 1,
             bining(len(word) / 15, 3),
             bining(lexical_freq(word.text) / 10, 3),
-            word.dep_,
-            bining(word.i / word.sent.end, 3))
+            # word.dep_,
+            # bining(word.i / word.sent.end, 3)
+            )
 
 
 class TextParser(Pipeline):
@@ -48,10 +49,13 @@ class TextParser(Pipeline):
         ])
 
 
-def to_style_tokens(text):
+def to_style_tokens(text, join=True):
     features = TextParser().fit_transform(text)
-    tokens_text = " ".join(features.apply(lambda x: "_".join(map(str, x)), axis=1))
-    return re.sub(" ([.!?])[^ ]+", "\g<1>", tokens_text)
+    tokens = features.apply(lambda x: "_".join(map(str, x)), axis=1)
+    if join:
+        return re.sub(" ([.!?])[^ ]+", "\g<1>", " ".join(tokens))
+    else:
+        return tokens.tolist()
 
 
 def limit_style_tokens(word, length=4):
@@ -234,21 +238,19 @@ def len_norm(n, t, weight=.7):
 
 def eos_norm(n, t, weight=0.2, log=True):
     norm = (n + 1) / t
-    return weight * np.log(norm) if log else norm
+    return weight * (np.log(norm) if log else norm)
 
 
 def beam_search(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smoothing_prob=1e-6,
                 word_trans_weight=.5, emission_weight=.5, context_weight=.05, eos_norm_weight=.2, len_norm_weight=.7,
                 begin_token='___BEGIN__', end_token='___END__',
                 variable_length=True, max_length=30):
+
     weights = [word_trans_weight, emission_weight, context_weight]
     word_trans_weight, emission_weight, context_weight = np.array(weights) / sum(weights)
 
     pos_sent = find_sentence_containing(pos_mm, context_words, max_words=max_length).split()
     n_t = len(pos_sent)
-    print(n_t)
-    #     pos_sent = pos_mm.make_sentence(max_words=max_length).split()
-
     queue = {tuple(): 0}
     i = 0
 
@@ -258,7 +260,6 @@ def beam_search(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smo
 
         for prev_words, prev_score in queue.items():
             filtered_context_words = set(context_words) - set(prev_words)
-            # cur_tag = pos_sent[len(prev_words)] if len(prev_words) < len(pos_sent) else ''
             if (prev_words and prev_words[-1] == end_token) or len(prev_words) == max_length:
                 if not variable_length:
                     layer_candidates = {**layer_candidates, **{prev_words: prev_score}}
@@ -271,25 +272,22 @@ def beam_search(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smo
             emission_candidates = normalize_dict(emission_probs[cur_tag])
             context_candidates = normalize_dict(attention(filtered_context_words))
 
-            merged_probs = pd.DataFrame([transition_candidates, emission_candidates, context_candidates]) \
-                .fillna(smoothing_prob) \
-                .apply(lambda x: sum(x * [word_trans_weight, emission_weight, context_weight]))
+            keys = set(transition_candidates.keys()) | set(emission_candidates.keys()) | set(context_candidates.keys())
+            merged_probs = {k: transition_candidates.get(k, smoothing_prob) * word_trans_weight
+                         + emission_candidates.get(k, smoothing_prob) * emission_weight
+                         + context_candidates.get(k, smoothing_prob) * context_weight
+                      for k in keys}
 
-            merged_probs[end_token] = merged_probs.get(end_token, smoothing_prob) + eos_norm(n, n_t, eos_norm_weight,
-                                                                                             False)
-
-            reduction_words = set(prev_words[-3:]) #or (set(prev_words) and set(context_words))
+            merged_probs[end_token] = merged_probs.get(end_token, smoothing_prob) * eos_norm(n, n_t, eos_norm_weight, False)
+            reduction_words = set(prev_words[-3:])
             for word in reduction_words:
                 merged_probs[word] = smoothing_prob if word in merged_probs else 0
 
-            merged_probs /= sum(merged_probs)
-            merged_log_probs = np.log(merged_probs)
-
-            selected_candidates = merged_log_probs.nlargest(beam_size)
+            merged_probs = pd.Series(normalize_dict(merged_probs))
+            selected_candidates = merged_probs.nlargest(beam_size)
+            selected_candidates = np.log(selected_candidates / sum(selected_candidates))
             selected_candidates = {
-                tuple(prev_words) + (word,): (prev_score * len_norm(n, n_t, len_norm_weight) + score) / len_norm(n + 1,
-                                                                                                                 n_t,
-                                                                                                                 len_norm_weight)
+                tuple(prev_words) + (word,): (prev_score * len_norm(n, n_t, len_norm_weight) + score) / len_norm(n + 1, n_t, len_norm_weight)
                 for word, score in selected_candidates.items()}
             layer_candidates = {**layer_candidates, **selected_candidates}
 
@@ -300,9 +298,6 @@ def beam_search(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smo
         if set(queue.keys()) == set(old_queue.keys()):
             break
 
-        # for words, score in queue.items():
-        #     print(' '.join(words), score)
-        # print()
         i += 1
 
     results = dict(filter(lambda x: end_token in x[0], queue.items()))
@@ -314,7 +309,6 @@ def beam_search(word_mm, pos_mm, emission_probs, context_words, beam_size=5, smo
         best = max(results, key=results.get)
         sent = ' '.join(best[:safe_find(best, end_token)])
 
-    print(sent)
     return sent, queue[best]
 
 
@@ -328,15 +322,11 @@ def beam_search2(word_mm, pos_mm, emission_probs, context_words, beam_size=5, sm
     n_t = len(context_words)
     queue = {tuple(): 0}
     i = 0
-
     while True:
-
-        # cur_tag = pos_sent[i] if i < len(pos_sent) else ''
         layer_candidates = queue if variable_length and i != 0 else {}
 
         for prev_words, prev_score in queue.items():
             filtered_context_words = set(context_words) - set(prev_words)
-            # cur_tag = pos_sent[len(prev_words)] if len(prev_words) < len(pos_sent) else ''
             if (prev_words and prev_words[-1] == end_token) or len(prev_words) == max_length:
                 if not variable_length:
                     layer_candidates = {**layer_candidates, **{prev_words: prev_score}}
@@ -344,32 +334,30 @@ def beam_search2(word_mm, pos_mm, emission_probs, context_words, beam_size=5, sm
 
             n = len(prev_words)
             prev_word_state = [begin_token] * (word_mm.chain.state_size - n) + list(prev_words[-word_mm.chain.state_size:])
-            prev_token_state = [begin_token] * (pos_mm.chain.state_size - n) + to_style_tokens(' '.join(list(prev_words[-word_mm.chain.state_size:]))).split()
-            print(prev_token_state)
+            prev_token_state = [begin_token] * (pos_mm.chain.state_size - n) + to_style_tokens(' '.join(list(prev_words[-word_mm.chain.state_size:])), False)
+
             pos_transition_candidates = normalize_dict(pos_mm.chain.model.get(tuple(prev_token_state), {}))
             emission_candidates = Counter()
             for tok, score in pos_transition_candidates.items():
                 emission_candidates.update({k: v * score for k, v in normalize_dict(emission_probs[tok]).items()})
-
-            print(len(emission_candidates))
-
             transition_candidates = normalize_dict(word_mm.chain.model.get(tuple(prev_word_state), {}))
             context_candidates = normalize_dict(attention(filtered_context_words))
 
-            merged_probs = pd.DataFrame([transition_candidates, emission_candidates, context_candidates]) \
-                .fillna(smoothing_prob) \
-                .apply(lambda x: sum(x * [word_trans_weight, emission_weight, context_weight]))
+            keys = set(transition_candidates.keys()) | set(emission_candidates.keys()) | set(context_candidates.keys())
+            merged_probs = {k: transition_candidates.get(k, smoothing_prob) * word_trans_weight
+                         + emission_candidates.get(k, smoothing_prob) * emission_weight
+                         + context_candidates.get(k, smoothing_prob) * context_weight
+                      for k in keys}
+            merged_probs[end_token] = merged_probs.get(end_token, 0) + eos_norm(n, n_t, eos_norm_weight, False)
 
-            merged_probs[end_token] = merged_probs.get(end_token, smoothing_prob) + eos_norm(n, n_t, eos_norm_weight, False)
-
-            reduction_words = set(prev_words[-3:]) or (set(prev_words) and set(context_words))
+            reduction_words = set(prev_words[-3:])
             for word in reduction_words:
-                merged_probs[word] = smoothing_prob if word in merged_probs else 0
+                if word in merged_probs:
+                    merged_probs[word] = smoothing_prob
 
-            merged_probs /= sum(merged_probs)
-            merged_log_probs = np.log(merged_probs)
-
-            selected_candidates = merged_log_probs.nlargest(beam_size)
+            merged_probs = pd.Series(normalize_dict(merged_probs))
+            selected_candidates = merged_probs.nlargest(beam_size)
+            selected_candidates = np.log(selected_candidates / sum(selected_candidates))
             selected_candidates = {tuple(prev_words) + (word,):
                                        (prev_score * len_norm(n, n_t, len_norm_weight) + score) / len_norm(n + 1, n_t, len_norm_weight)
                                    for word, score in selected_candidates.items()}
@@ -393,5 +381,4 @@ def beam_search2(word_mm, pos_mm, emission_probs, context_words, beam_size=5, sm
         best = max(results, key=results.get)
         sent = ' '.join(best[:safe_find(best, end_token)])
 
-    print(sent)
     return sent, queue[best]
